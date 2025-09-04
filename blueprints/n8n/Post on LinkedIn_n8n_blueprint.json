@@ -1,0 +1,134 @@
+{
+  "name": "Post on LinkedIn",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "27 10 * * 1,3"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "dd1fe7b6-807e-4624-922a-34dd06cd5a92",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1DW9N2HTz3s7fiTbEufZ7bPazo-yTu8Ym1YRLQbVHwoI",
+          "mode": "list",
+          "cachedResultName": "LinkedIn Post Scheduler",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1DW9N2HTz3s7fiTbEufZ7bPazo-yTu8Ym1YRLQbVHwoI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1DW9N2HTz3s7fiTbEufZ7bPazo-yTu8Ym1YRLQbVHwoI/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Status",
+              "lookupValue": "Approved"
+            },
+            {
+              "lookupColumn": "LinkedInPostId "
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        208,
+        0
+      ],
+      "id": "c0c00e7e-4d81-4e32-b900-f0381aac79d1",
+      "name": "Get row(s) in sheet",
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "AE62uIlnXjGw3D9z",
+          "name": "RK Google Sheets (03-09-25)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.bufferapp.com/1/updates/create.json",
+        "authentication": "predefinedCredentialType",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{ $json.PostDraft }}"
+            },
+            {
+              "name": "profile_ids[]"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "7b67ae98-2d14-4fa1-b1b1-19b85bbd64d5",
+      "name": "Buffer LinkedIn Post"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Buffer LinkedIn Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "606dc7d2-16c1-439d-960f-c633ef55c262",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2ee1b1a5201177f55aa5d83dcb8c9c9ef372c5d291e79aac1d3d62cce13dea3d"
+  },
+  "id": "l07QQ3eKaBYwX7am",
+  "tags": []
+}

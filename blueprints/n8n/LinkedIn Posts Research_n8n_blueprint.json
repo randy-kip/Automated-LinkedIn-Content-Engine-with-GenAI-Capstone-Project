@@ -1,0 +1,945 @@
+{
+  "name": "LinkedIn Posts Research",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/LCqUcmVsgPFXQAe7.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        176,
+        -112
+      ],
+      "id": "d46160fa-0711-4b78-bc8b-05c9dd4e14e7",
+      "name": "RSS Read",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "model": "sonar",
+        "messages": {
+          "message": [
+            {
+              "content": "You are a research assistant returning strictly valid JSON array without any ``` or code block formatting. No prose.",
+              "role": "system"
+            },
+            {
+              "content": "Find the 10 most recent, high-quality articles or case studies published in the last 30 days on: AI automation, lead generation, voice agents, data scraping, and workflow automation. For each, return JSON with keys: title, url, date (ISO), source (domain). Authoritative sources only; exclude spam/AI farms. Output JSON array only."
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 1000,
+          "temperature": 0.2
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.perplexity",
+      "typeVersion": 1,
+      "position": [
+        176,
+        144
+      ],
+      "id": "98118bca-1b5f-487b-a5a3-905252272a3c",
+      "name": "Message a model",
+      "executeOnce": false,
+      "credentials": {
+        "perplexityApi": {
+          "id": "CWsfR0KrqgHCwy3A",
+          "name": "Perplexity account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = $input.first().json.content || '';\nconst pattern = /<h4><a href=\"([^\"]+)\"[^>]*>(.*?)<\\/a><\\/h4>\\s*<p>(.*?)<\\/p>\\s*<p><a[^>]*>(.*?)<\\/a><\\/p>/gis;\nconst out = [];\nlet m;\nwhile ((m = pattern.exec(html)) !== null) {\n  out.push({\n    url_curated: m[1],        // the cur.at or link shortener URL\n    title: m[2],\n    blurb: m[3],\n    source_hint: m[4]\n  });\n}\nreturn out.map(o => ({ json: o }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        -112
+      ],
+      "id": "66702b56-617a-47c8-8d09-2a67f84a3092",
+      "name": "Parse RSS Content"
+    },
+    {
+      "parameters": {
+        "url": "=https://www.{{ $json.source_hint }}",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1072,
+        -176
+      ],
+      "id": "6a4dc4f1-75f0-49eb-9148-2fe4b0840a5b",
+      "name": "HTTP Request",
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0471e56b-525f-451f-899e-0b4cf8ed560d",
+              "leftValue": "={{ $json.source_hint }}",
+              "rightValue": "weforum.org",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "a17bc183-30a5-42b6-984f-6f35dfcfc3d5",
+              "leftValue": "={{ $json.source_hint }}",
+              "rightValue": "researchgate.net",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        848,
+        -176
+      ],
+      "id": "11adbf00-4331-44bc-98e5-2d5dfa56fdbf",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a concise marketing research assistant. Use UK English. \nReturn strict JSON only (no code fences, no commentary). \nYour goal: from an article title and optional summary, produce a crisp content brief for a LinkedIn post.",
+              "role": "system"
+            },
+            {
+              "content": "=INPUTS\narticle_title: \"{{ $('Loop Over RSS Items').item.json.title }}\"\narticle_summary_optional: \"{{ $('Loop Over RSS Items').item.json.blurb }}\"\n\nTASK\n1) topic: Extract or rewrite the topic as a short, compelling bracket-ready phrase (<= 12 words).\n2) views_on_topic: Write 2–3 sentences that present expert, helpful views a specialist would have on this topic (no fluff). Avoid generic advice.\n3) target_audience: Infer who would care most. Return 3–5 concise audience segments.\n4) hashtags_seed: Suggest 4–6 niche, non-generic hashtags (no #ai, #automation, #business).\n\nFORMAT\n{\n  \"topic\": \"string\",\n  \"views_on_topic\": \"string\",\n  \"target_audience\": [\"segment1\",\"segment2\",\"segment3\"],\n  \"hashtags_seed\": [\"#tag1\",\"#tag2\",\"#tag3\",\"#tag4\"]\n}"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {
+          "maxTokens": 2048,
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        1520,
+        -176
+      ],
+      "id": "81ba5d04-344d-497f-8445-60c9930a2024",
+      "name": "LinkedIn Brief Builder",
+      "credentials": {
+        "openAiApi": {
+          "id": "QiqHFT5PmyMhsn6d",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = $input.first().json.data || '';\nconst text = html\n  .replace(/<script[\\s\\S]*?<\\/script>/gi,' ')\n  .replace(/<style[\\s\\S]*?<\\/style>/gi,' ')\n  .replace(/<[^>]+>/g,' ')\n  .replace(/\\s+/g,' ')\n  .trim();\nreturn [{ json: { \n  clean_text: text, \n  url: $('Loop Over RSS Items').first().json.source_hint || $('Loop Over RSS Items').first().json.url_curated,\n  source: $('Loop Over RSS Items').first().json.source_hint\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1296,
+        -176
+      ],
+      "id": "5e2139f7-42a6-4c72-9489-b25cb9309da2",
+      "name": "Remove Tags & Collapse Whitespace"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1DW9N2HTz3s7fiTbEufZ7bPazo-yTu8Ym1YRLQbVHwoI",
+          "mode": "list",
+          "cachedResultName": "LinkedIn Post Scheduler",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1DW9N2HTz3s7fiTbEufZ7bPazo-yTu8Ym1YRLQbVHwoI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1DW9N2HTz3s7fiTbEufZ7bPazo-yTu8Ym1YRLQbVHwoI/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Title": "={{ $('Loop Over RSS Items').item.json.title }}",
+            "URL": "=https://www.{{ $('Loop Over RSS Items').item.json.source_hint }}",
+            "Source": "={{ $('Loop Over RSS Items').item.json.source_hint }}",
+            "Summary": "={{ $('LinkedIn Brief Builder').item.json.message.content.topic }}",
+            "PostDraft": "={{ $json.message.content.post_text }}",
+            "Hashtags": "={{ $json.message.content.hashtags }}",
+            "ImageIdea": "={{ $json.message.content.image_idea }}",
+            "Status": "Pending",
+            "CreatedAt ": "={{ $now.format('ccc, dd LLL yyyy') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Title",
+              "displayName": "Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Source",
+              "displayName": "Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Summary",
+              "displayName": "Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "PostDraft",
+              "displayName": "PostDraft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Hashtags",
+              "displayName": "Hashtags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ImageIdea",
+              "displayName": "ImageIdea",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "CreatedAt ",
+              "displayName": "CreatedAt ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "LinkedInPostId ",
+              "displayName": "LinkedInPostId ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "PostedAt ",
+              "displayName": "PostedAt ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "useAppend": true
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2224,
+        -112
+      ],
+      "id": "e4b3808b-8942-47eb-b022-541e858c5170",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "AE62uIlnXjGw3D9z",
+          "name": "RK Google Sheets (03-09-25)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a B2B LinkedIn content strategist for KiDaFlow (AI automation: lead generation, voice agents, content generation, data scraping, workflow automation). You are a copywriter with strong LinkedIn copy skills, specialized in captivating people's attention with your skills.\n\nUse UK English. Be extremely confident and creative.\nPrefer short sentences and sentence fragments for punch (40–60% fragments). \nReturn strict JSON only (no code fences, no commentary).",
+              "role": "system"
+            },
+            {
+              "content": "=CONTEXT: You are a copywriter with strong LinkedIn copywriter skills and specialised in captivating people's attention with your skills.\n\nACTION: Create a LinkedIn post copy on the given topic that resonates with the target audience. Also give me an Image idea. \nThe intro should hook readers' attention and encourage them to read the entire post by pushing their emotional buttons. \nCapture the reader's interest from different angles using unique approaches. \n\nTopic: [{{ $json.message.content.topic }}]\n\nMy Views on topic: [{{ $json.message.content.views_on_topic }}]\n\nTarget audience: [{{ $json.message.content.target_audience }}]\n\nSPECIFICATIONS:\n— The copy should be extremely confident and creative.\n— Format the copy in a way that keeps the audience engaged.\n— Each copy must be less than 175 words (target 130–170 words).\n— End with 3–5 niche hashtags (avoid generic #ai, #automation). Always include #KiDaFlow if relevant. These should be at the very end in their own section. Not in the same line as any other content.\n— The structure should be: Hook → Insights (3–4 lines) → Actionable takeaway → Soft CTA → Hashtags. Put each section in a separate paragraph. NO prose.\n— You can use one or two emojis depending on the context.\n\nAlso, provide a single-sentence Image idea that a designer or image model could execute (no text-in-image; brand colour #4A104C; 1200x627).\n\nReturn strict JSON with exactly:\n{\n  \"post_text\": \"string (130–170 words, includes insights, takeaway, and hashtags at the end)\",\n  \"hashtags\": [\"#tag1\",\"#tag2\",\"#tag3\",\"#KiDaFlow\"],\n  \"image_idea\": \"one sentence describing a clean, modern concept for the image (no text on image)\"\n}\n\nYou may incorporate some or all of these seed hashtags if they fit naturally:\n{{ $json.message.content.hashtags_seed }}\n\nExample Post:\nTransform your enterprise with AI: Discover how companies like TELUS and Bridgewater are saving millions through innovative automation. \n\n👉 Over 13,000 AI tools developed, saving 500,000 staff hours and generating $90M in benefits.\n👉 AI-driven workflows boost efficiency — automating 800+ tasks and reducing analysis times by up to 70%.\n👉 Embedding AI in security speeds threat analysis by 100x.\n\nActionable tip: Explore multi-model AI solutions like Claude to streamline processes and deliver measurable ROI.\n\nLet’s make AI education a priority. For community. For progress. For the future.\n\n#youthaiinnovation #stemeducation #digitalliteracy #KiDaFlow"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {
+          "maxTokens": 2048,
+          "temperature": 0.7
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        1872,
+        -176
+      ],
+      "id": "9173f2f1-c65b-4646-bafc-685c74fdf847",
+      "name": "LinkedIn Post Writer",
+      "credentials": {
+        "openAiApi": {
+          "id": "QiqHFT5PmyMhsn6d",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Loop Over Perplexity Articles').item.json.url }}",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1072,
+        144
+      ],
+      "id": "737f4b71-bf98-4411-9dd9-3ad6f6e6ad68",
+      "name": "HTTP Request1",
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = $input.first().json.data || '';\nconst text = html\n  .replace(/<script[\\s\\S]*?<\\/script>/gi,' ')\n  .replace(/<style[\\s\\S]*?<\\/style>/gi,' ')\n  .replace(/<[^>]+>/g,' ')\n  .replace(/\\s+/g,' ')\n  .trim();\nreturn [{ json: { \n  clean_text: text, \n  url: $('Loop Over Perplexity Articles').first().json.url,\n  source: $('Get Source').first().json.source\n\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1296,
+        144
+      ],
+      "id": "7813324f-e51c-47f7-becf-292228788e10",
+      "name": "Remove Tags & Collapse Whitespace1"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1DW9N2HTz3s7fiTbEufZ7bPazo-yTu8Ym1YRLQbVHwoI",
+          "mode": "list",
+          "cachedResultName": "LinkedIn Post Scheduler",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1DW9N2HTz3s7fiTbEufZ7bPazo-yTu8Ym1YRLQbVHwoI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1DW9N2HTz3s7fiTbEufZ7bPazo-yTu8Ym1YRLQbVHwoI/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Title": "={{ $('Loop Over Perplexity Articles').item.json.title }}",
+            "URL": "={{ $('Loop Over Perplexity Articles').item.json.url }}",
+            "Source": "={{ $('Get Source').item.json.source }}",
+            "Summary": "={{ $('LinkedIn Brief Builder -- Perplexity').item.json.message.content.topic }}",
+            "PostDraft": "={{ $json.message.content.post_text }}",
+            "Hashtags": "={{ $json.message.content.hashtags }}",
+            "ImageIdea": "={{ $json.message.content.image_idea }}",
+            "Status": "Pending",
+            "CreatedAt ": "={{ $now.format('ccc, dd LLL yyyy') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Title",
+              "displayName": "Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Source",
+              "displayName": "Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Summary",
+              "displayName": "Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "PostDraft",
+              "displayName": "PostDraft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Hashtags",
+              "displayName": "Hashtags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ImageIdea",
+              "displayName": "ImageIdea",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "CreatedAt ",
+              "displayName": "CreatedAt ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "LinkedInPostId ",
+              "displayName": "LinkedInPostId ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "PostedAt ",
+              "displayName": "PostedAt ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "useAppend": true
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2224,
+        144
+      ],
+      "id": "3360454c-dfa9-4d5b-a845-b0703e676882",
+      "name": "Append row in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "AE62uIlnXjGw3D9z",
+          "name": "RK Google Sheets (03-09-25)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        624,
+        -112
+      ],
+      "id": "8d3cbe60-b5d9-4187-bb07-6500286a358f",
+      "name": "Loop Over RSS Items"
+    },
+    {
+      "parameters": {
+        "batchSize": "=1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        624,
+        144
+      ],
+      "id": "df97c445-704d-4605-a839-1f9c94e481c9",
+      "name": "Loop Over Perplexity Articles"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "search_results",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        400,
+        144
+      ],
+      "id": "d5738b6d-59d4-46c8-871c-f84de0b722ae",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a concise marketing research assistant. Use UK English. \nReturn strict JSON only (no code fences, no commentary). \nYour goal: from an article title and optional summary, produce a crisp content brief for a LinkedIn post.",
+              "role": "system"
+            },
+            {
+              "content": "=INPUTS\narticle_title:\"{{ $('Loop Over Perplexity Articles').item.json.title }}\"\n\nTASK\n1) topic: Extract or rewrite the topic as a short, compelling bracket-ready phrase (<= 12 words).\n2) views_on_topic: Write 2–3 sentences that present expert, helpful views a specialist would have on this topic (no fluff). Avoid generic advice.\n3) target_audience: Infer who would care most. Return 3–5 concise audience segments.\n4) hashtags_seed: Suggest 4–6 niche, non-generic hashtags (no #ai, #automation, #business).\n\nFORMAT\n{\n  \"topic\": \"string\",\n  \"views_on_topic\": \"string\",\n  \"target_audience\": [\"segment1\",\"segment2\",\"segment3\"],\n  \"hashtags_seed\": [\"#tag1\",\"#tag2\",\"#tag3\",\"#tag4\"]\n}"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {
+          "maxTokens": 2048,
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        1520,
+        144
+      ],
+      "id": "4fea7199-a910-41fb-b281-bb09b5530713",
+      "name": "LinkedIn Brief Builder -- Perplexity",
+      "credentials": {
+        "openAiApi": {
+          "id": "QiqHFT5PmyMhsn6d",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a B2B LinkedIn content strategist for KiDaFlow (AI automation: lead generation, voice agents, content generation, data scraping, workflow automation). You are a copywriter with strong LinkedIn copy skills, specialized in captivating people's attention with your skills.\n\nUse UK English. Be extremely confident and creative.\nPrefer short sentences and sentence fragments for punch (40–60% fragments). \nReturn strict JSON only (no code fences, no commentary).",
+              "role": "system"
+            },
+            {
+              "content": "=CONTEXT: You are a copywriter with strong LinkedIn copywriter skills and specialised in captivating people's attention with your skills.\n\nACTION: Create a LinkedIn post copy on the given topic that resonates with the target audience. Also give me an Image idea. \nThe intro should hook readers' attention and encourage them to read the entire post by pushing their emotional buttons. \nCapture the reader's interest from different angles using unique approaches. \n\nTopic: [{{ $json.message.content.topic }}]\n\nMy Views on topic: [{{ $json.message.content.views_on_topic }}]\n\nTarget audience: [{{ $json.message.content.target_audience }}]\n\nSPECIFICATIONS:\n— The copy should be extremely confident and creative.\n— Format the copy in a way that keeps the audience engaged.\n— Each copy must be less than 175 words (target 130–170 words).\n— End with 3–5 niche hashtags (avoid generic #ai, #automation). Always include #KiDaFlow if relevant. These should be at the very end in their own section. Not in the same line as any other content.\n— The structure should be: Hook → Insights (3–4 lines) → Actionable takeaway → Soft CTA → Hashtags. Put each section in a separate paragraph. NO prose.\n— You can use one or two emojis depending on the context.\n\nAlso, provide a single-sentence Image idea that a designer or image model could execute (no text-in-image; brand colour #4A104C; 1200x627).\n\nReturn strict JSON with exactly:\n{\n  \"post_text\": \"string (130–170 words, includes insights, takeaway, and hashtags at the end)\",\n  \"hashtags\": [\"#tag1\",\"#tag2\",\"#tag3\",\"#KiDaFlow\"],\n  \"image_idea\": \"one sentence describing a clean, modern concept for the image (no text on image)\"\n}\n\nYou may incorporate some or all of these seed hashtags if they fit naturally:\n{{ $json.message.content.hashtags_seed }}\n\nExample Post:\nTransform your enterprise with AI: Discover how companies like TELUS and Bridgewater are saving millions through innovative automation. \n\n👉 Over 13,000 AI tools developed, saving 500,000 staff hours and generating $90M in benefits.\n👉 AI-driven workflows boost efficiency — automating 800+ tasks and reducing analysis times by up to 70%.\n👉 Embedding AI in security speeds threat analysis by 100x.\n\nActionable tip: Explore multi-model AI solutions like Claude to streamline processes and deliver measurable ROI.\n\nLet’s make AI education a priority. For community. For progress. For the future.\n\n#youthaiinnovation #stemeducation #digitalliteracy #KiDaFlow"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {
+          "maxTokens": 2048,
+          "temperature": 0.7
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        1872,
+        144
+      ],
+      "id": "f8a733cd-3b2d-4a16-8b33-b060c725c24f",
+      "name": "LinkedIn Post Writer -- Perplexity",
+      "credentials": {
+        "openAiApi": {
+          "id": "QiqHFT5PmyMhsn6d",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const u =  $input.first().json.url || '';\nconst m = u.match(/^https?:\\/\\/([^/]+)/i) || u.match(/^([^/]+)/);\nconst host = m ? m[1].replace(/^www\\./,'') : '';\nreturn { source: host };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        144
+      ],
+      "id": "e9c5ac14-7faa-4648-93a1-bf4941fecd83",
+      "name": "Get Source"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "25 4 * * 1"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -48,
+        -16
+      ],
+      "id": "027e04a8-2f44-4daa-a00d-55cd302ee507",
+      "name": "Schedule Trigger"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "RSS Read": {
+      "main": [
+        [
+          {
+            "node": "Parse RSS Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse RSS Content": {
+      "main": [
+        [
+          {
+            "node": "Loop Over RSS Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Remove Tags & Collapse Whitespace",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LinkedIn Brief Builder": {
+      "main": [
+        [
+          {
+            "node": "LinkedIn Post Writer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Tags & Collapse Whitespace": {
+      "main": [
+        [
+          {
+            "node": "LinkedIn Brief Builder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over RSS Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LinkedIn Post Writer": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Remove Tags & Collapse Whitespace1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Tags & Collapse Whitespace1": {
+      "main": [
+        [
+          {
+            "node": "LinkedIn Brief Builder -- Perplexity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet1": {
+      "main": [
+        []
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over RSS Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Perplexity Articles": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Get Source",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Perplexity Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LinkedIn Brief Builder -- Perplexity": {
+      "main": [
+        [
+          {
+            "node": "LinkedIn Post Writer -- Perplexity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LinkedIn Post Writer -- Perplexity": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Source": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "RSS Read",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a67d382c-ce9b-4a11-b373-57d991d506fc",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2ee1b1a5201177f55aa5d83dcb8c9c9ef372c5d291e79aac1d3d62cce13dea3d"
+  },
+  "id": "oQNJbXEOrYgFpomG",
+  "tags": []
+}
