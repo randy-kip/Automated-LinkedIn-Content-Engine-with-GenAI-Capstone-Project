@@ -6,6 +6,7 @@ Turn AI-automation news into LinkedIn-ready posts with a human approval gate and
 
 **Loom walkthrough:** https://www.loom.com/share/075c0315114c4ea982d3fff5d69354d4?sid=261545b7-0248-4574-80d2-8e56ea8f40e9
 
+**Doc Comprehensive Walkthrough**: https://docs.google.com/document/d/1y2yk9Wr7IhrtwTTSR6y-9obp5_LA4Bzjq1Co1Su3L20/edit?usp=sharing
 
 ## What this toolkit does
 
