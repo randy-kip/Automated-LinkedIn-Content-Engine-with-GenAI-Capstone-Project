@@ -129,7 +129,7 @@ More examples in `docs/troubleshooting.md`.
 ## Contributing / Licence
 
 - Issues and PRs welcome (typos, improvements, alt prompts).
-- MIT Licence.
+- [MIT Licence](https://github.com/randy-kip/Automated-LinkedIn-Content-Engine-with-GenAI-Capstone-Project/blob/main/LICENSE).
 
 ## Acknowledgements
 
